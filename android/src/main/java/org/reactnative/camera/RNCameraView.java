@@ -10,6 +10,7 @@ import android.media.CamcorderProfile;
 import android.media.MediaActionSound;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.util.Log;
 import android.view.TextureView;
 import android.view.View;
 
@@ -235,6 +236,10 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     if (bitmap == null) {
       return;
     }
+    if(mModelInput == null){
+      return;
+    }
+
     mModelInput.rewind();
     bitmap.getPixels(mModelViewBuf, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
     int pixel = 0;
@@ -543,13 +548,20 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     mTextRecognizer = new TextRecognizer.Builder(mThemedReactContext).build();
   }
 
-  private MappedByteBuffer loadModelFile() throws IOException {
-    AssetFileDescriptor fileDescriptor = mThemedReactContext.getAssets().openFd(mModelFile);
-    FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
-    FileChannel fileChannel = inputStream.getChannel();
-    long startOffset = fileDescriptor.getStartOffset();
-    long declaredLength = fileDescriptor.getDeclaredLength();
-    return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+  public void setShouldRecognizeText(boolean shouldRecognizeText) {
+    if (shouldRecognizeText && mTextRecognizer == null) {
+      setupTextRecongnizer();
+    }
+    this.mShouldRecognizeText = shouldRecognizeText;
+    setScanning(mShouldDetectFaces || mShouldGoogleDetectBarcodes || mShouldScanBarCodes || mShouldRecognizeText || mShouldProcessModel);
+  }
+
+  public void onTextRecognized(WritableArray serializedData) {
+    if (!mShouldRecognizeText) {
+      return;
+    }
+
+    RNCameraViewHelper.emitTextRecognizedEvent(this, serializedData);
   }
 
   private void setupModelProcessor() {
@@ -559,15 +571,18 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       mModelInput = ByteBuffer.allocateDirect(mModelImageDimX * mModelImageDimY * 3);
       mModelViewBuf = new int[mModelImageDimX * mModelImageDimY];
       mModelOutput = ByteBuffer.allocateDirect(mModelOutputDim);
-    } catch(Exception e) {}
+    } catch(Exception e) {
+      Log.v("error", "setupModelProcessor", e);
+    }
   }
 
-  public void setShouldRecognizeText(boolean shouldRecognizeText) {
-    if (shouldRecognizeText && mTextRecognizer == null) {
-      setupTextRecongnizer();
-    }
-    this.mShouldRecognizeText = shouldRecognizeText;
-    setScanning(mShouldDetectFaces || mShouldGoogleDetectBarcodes || mShouldScanBarCodes || mShouldRecognizeText || mShouldProcessModel);
+  private MappedByteBuffer loadModelFile() throws IOException {
+    AssetFileDescriptor fileDescriptor = mThemedReactContext.getAssets().openFd(mModelFile);
+    FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+    FileChannel fileChannel = inputStream.getChannel();
+    long startOffset = fileDescriptor.getStartOffset();
+    long declaredLength = fileDescriptor.getDeclaredLength();
+    return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
   }
 
   public void setModelFile(String modelFile, int inputDimX, int inputDimY, int outputDim, int freqms) {
@@ -585,14 +600,6 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
 
   }
 
-  public void onTextRecognized(WritableArray serializedData) {
-    if (!mShouldRecognizeText) {
-      return;
-    }
-
-    RNCameraViewHelper.emitTextRecognizedEvent(this, serializedData);
-  }
-
   public void onModelProcessed(ByteBuffer data, int sourceWidth, int sourceHeight, int sourceRotation) {
     if (!mShouldProcessModel) {
       return;
@@ -608,6 +615,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   public void onTextRecognizerTaskCompleted() {
     textRecognizerTaskLock = false;
   }
+
 
   public void onModelProcessorTaskCompleted() {
     modelProcessorTaskLock = false;

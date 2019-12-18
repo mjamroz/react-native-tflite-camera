@@ -9,16 +9,12 @@ import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
-import com.google.android.gms.vision.text.Line;
-import com.google.android.gms.vision.text.Text;
-import com.google.android.gms.vision.text.TextBlock;
 
 import org.reactnative.camera.CameraViewManager;
 import org.reactnative.camera.utils.ImageDimensions;
 import org.reactnative.facedetector.FaceDetectorUtils;
 
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 
 
 public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
