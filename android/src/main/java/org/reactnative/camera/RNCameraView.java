@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.media.CamcorderProfile;
 import android.media.MediaActionSound;
@@ -59,7 +60,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import android.graphics.Bitmap;
+
+//import java.nio.MappedByteBuffer;
 
 public class RNCameraView extends CameraView implements LifecycleEventListener, BarCodeScannerAsyncTaskDelegate, FaceDetectorAsyncTaskDelegate,
     BarcodeDetectorAsyncTaskDelegate, TextRecognizerAsyncTaskDelegate, PictureSavedDelegate {
@@ -90,6 +92,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private RNBarcodeDetector mGoogleBarcodeDetector;
   private TextRecognizer mTextRecognizer;
   private String mModelFile;
+  private final Interpreter.Options options = new Interpreter.Options();
   private Interpreter mModelProcessor;
   private int mModelMaxFreqms;
   private ByteBuffer mModelInput;
@@ -550,8 +553,9 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   }
 
   private void setupModelProcessor() {
+
     try {
-      mModelProcessor = new Interpreter(loadModelFile());
+      mModelProcessor = new Interpreter(loadModelFile(), options);
       mModelInput = ByteBuffer.allocateDirect(mModelImageDimX * mModelImageDimY * 3);
       mModelViewBuf = new int[mModelImageDimX * mModelImageDimY];
       mModelOutput = ByteBuffer.allocateDirect(mModelOutputDim);
@@ -589,7 +593,6 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     RNCameraViewHelper.emitTextRecognizedEvent(this, serializedData);
   }
 
-  @Override
   public void onModelProcessed(ByteBuffer data, int sourceWidth, int sourceHeight, int sourceRotation) {
     if (!mShouldProcessModel) {
       return;
@@ -606,7 +609,6 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     textRecognizerTaskLock = false;
   }
 
-  @Override
   public void onModelProcessorTaskCompleted() {
     modelProcessorTaskLock = false;
   }
