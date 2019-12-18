@@ -269,6 +269,7 @@ type PropsType = typeof View.props & {
   faceDetectionClassifications?: number,
   onFacesDetected?: ({ faces: Array<TrackedFaceFeature> }) => void,
   onTextRecognized?: ({ textBlocks: Array<TrackedTextFeature> }) => void,
+  onModelProcessed?: () => void,
   captureAudio?: boolean,
   keepAudioSession?: boolean,
   useCamera2Api?: boolean,
@@ -396,6 +397,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
     onGoogleVisionBarcodesDetected: PropTypes.func,
     onFacesDetected: PropTypes.func,
     onTextRecognized: PropTypes.func,
+    onModelProcessed: PropTypes.func,
     onSubjectAreaChanged: PropTypes.func,
     trackingEnabled: PropTypes.bool,
     faceDetectionMode: PropTypes.number,
@@ -806,6 +808,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
             onBarCodeRead={this._onObjectDetected(this.props.onBarCodeRead)}
             onFacesDetected={this._onObjectDetected(this.props.onFacesDetected)}
             onTextRecognized={this._onObjectDetected(this.props.onTextRecognized)}
+            onModelProcessed={this._onObjectDetected(this.props.onModelProcessed)}
             onPictureSaved={this._onPictureSaved}
             onSubjectAreaChanged={this._onSubjectAreaChanged}
           />
@@ -838,6 +841,10 @@ export default class Camera extends React.Component<PropsType, StateType> {
       newProps.textRecognizerEnabled = true;
     }
 
+    if (props.onModelProcessed && props.modelParams) {
+      newProps.modelParams = props.modelParams;
+    }
+
     if (Platform.OS === 'ios') {
       delete newProps.googleVisionBarcodeMode;
       delete newProps.ratio;
@@ -866,6 +873,7 @@ const RNCamera = requireNativeComponent('RNCamera', Camera, {
     googleVisionBarcodeDetectorEnabled: true,
     faceDetectorEnabled: true,
     textRecognizerEnabled: true,
+    modelFile: null,
     importantForAccessibility: true,
     onBarCodeRead: true,
     onGoogleVisionBarcodesDetected: true,

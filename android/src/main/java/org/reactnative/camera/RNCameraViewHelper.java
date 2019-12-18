@@ -6,21 +6,35 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.media.CamcorderProfile;
 import android.os.Build;
-import androidx.exifinterface.media.ExifInterface;
 import android.view.ViewGroup;
+
+import androidx.exifinterface.media.ExifInterface;
+
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactContext;
-import com.facebook.react.bridge.ReadableMapKeySetIterator;
 import com.facebook.react.bridge.ReadableMap;
-import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableArray;
+import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.UIManagerModule;
 import com.google.android.cameraview.CameraView;
 import com.google.zxing.Result;
-import org.reactnative.camera.events.*;
+
 import org.reactnative.barcodedetector.RNBarcodeDetector;
+import org.reactnative.camera.events.BarCodeReadEvent;
+import org.reactnative.camera.events.BarcodeDetectionErrorEvent;
+import org.reactnative.camera.events.BarcodesDetectedEvent;
+import org.reactnative.camera.events.CameraMountErrorEvent;
+import org.reactnative.camera.events.CameraReadyEvent;
+import org.reactnative.camera.events.FaceDetectionErrorEvent;
+import org.reactnative.camera.events.FacesDetectedEvent;
+import org.reactnative.camera.events.ModelProcessedEvent;
+import org.reactnative.camera.events.PictureSavedEvent;
+import org.reactnative.camera.events.PictureTakenEvent;
+import org.reactnative.camera.events.TextRecognizedEvent;
+import org.reactnative.camera.utils.ImageDimensions;
 import org.reactnative.facedetector.RNFaceDetector;
 
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
@@ -295,6 +309,27 @@ public class RNCameraViewHelper {
         reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher().dispatchEvent(event);
       }
     });
+  }
+
+  public static void emitModelProcessedEvent(
+          ViewGroup view,
+          ByteBuffer data,
+          ImageDimensions dimensions) {
+    float density = view.getResources().getDisplayMetrics().density;
+
+    double scaleX = (double) view.getWidth() / (dimensions.getWidth() * density);
+    double scaleY = (double) view.getHeight() / (dimensions.getHeight() * density);
+
+    ModelProcessedEvent event = ModelProcessedEvent.obtain(
+            view.getId(),
+            data,
+            dimensions,
+            scaleX,
+            scaleY
+    );
+
+    ReactContext reactContext = (ReactContext) view.getContext();
+    reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher().dispatchEvent(event);
   }
 
   // Utilities

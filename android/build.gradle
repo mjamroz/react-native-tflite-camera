@@ -70,6 +70,9 @@ repositories {
   mavenCentral()
   maven { url "https://jitpack.io" }
   maven {
+    url 'https://google.bintray.com/tensorflow'
+  }
+  maven {
     // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
     url "$rootDir/../node_modules/react-native/android"
   }
@@ -80,6 +83,7 @@ dependencies {
 
   implementation 'com.facebook.react:react-native:+'
   implementation "com.google.zxing:core:3.3.3"
+  implementation 'org.tensorflow:tensorflow-lite:+'
   implementation "com.drewnoakes:metadata-extractor:2.11.0"
   generalImplementation "com.google.android.gms:play-services-vision:$googlePlayServicesVisionVersion"
   implementation "androidx.exifinterface:exifinterface:1.0.0"
