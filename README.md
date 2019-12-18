@@ -151,7 +151,7 @@ Run your app with the following command.
    react-native run-android
 ```
 
-![It's HotDog](https://cdn-images-1.medium.com/max/2000/1*JUPsOWLBvBwQoP4jHwv__A.gif)_It‚Äôs HotDog_
+![It's HotDog](https://cdn-images-1.medium.com/max/2000/1*JUPsOWLBvBwQoP4jHwv__A.gif)
 
 Jian Yang would be proud :)
 
