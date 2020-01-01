@@ -1,18 +1,18 @@
 For more information, see [react-native-camera](https://github.com/react-native-community/react-native-camera)
 
-# Real time image classification with React Native
+# Real time Object detection with React Native and tflite
 
-Earlier attempts at Image classification over React Native involved sending image data to the model classifier by sending the image over the bridge or storing the image to disk and accessing the image on the native side. Here's an attempt at live image classification by processing from the camera feed on the native side and getting the output as a byte stream on the JS side using the react-native-camera-tflite library.
+Earlier attempts at Object detection over React Native involved sending image data to the tflite model classifier by sending the image over the bridge or storing the image to disk and accessing the image on the native side. Here's an attempt at live object detection by processing from the camera feed on the native side and getting the output / confidence as a string on the JS side using the react-native-tflite-camera library.
 
 Huge shout-out to the people over at [react-native-camera](https://github.com/react-native-community/react-native-camera). This is essentially just a fork of their awesome work.
 
-Note: This is currently developed only for Android but could be implemented for iOS. (See [here](https://github.com/jigsawxyz/react-native-coreml-image) for a CoreML implementation on iOS).
+Note: This is currently developed only for Android. I am planning to add the support for ios as well. Any contribution is welcomed.
 
 To start, let's create an empty react native project:
 
 ```
-react-native init mobilenetapp
-cd mobilenet-app
+react-native init tfliteapp
+cd tfliteapp
 ```
 
 Let's add our dependencies:
@@ -36,50 +36,40 @@ Follow the install instructions (for android. Same as react-native-camera):
     ...
 ```
 
-Now let's use the download our model file from [here](http://download.tensorflow.org/models/mobilenet_v1_2018_08_02/mobilenet_v1_1.0_224_quant.tgz), decompress it, and copy over the mobilenet_v1_1.0_224_quant.tflite file over to our project.
+Now let's copy .tflite file over to our project.
 
 ```
     mkdir -p ./android/app/src/main/assets
-    cp mobilenet_v1_1.0_224_quant.tflite ./android/app/src/main/assets
+    cp <name_of_model_file>.tflite ./android/app/src/main/assets
 ```
-
-Add [this](https://gist.github.com/ppsreejith/1016f74f3c0cc95c121668904da67900) file to your project root directory as Output.json
 
 Replace the content of App.js in your project root directory with the following:
 
 ```
     import React, {Component} from 'react';
     import {StyleSheet, Text, View } from 'react-native';
-    import { RNCamera } from 'react-native-camera-tflite';
-    import outputs from './Output.json';
-    import _ from 'lodash';
-    let _currentInstant = 0;
+    import { RNCamera } from 'react-native-tflite-camera';
+
     export default class App extends Component {
       constructor(props) {
         super(props);
         this.state = {
-          time: 0,
-          output: ""
+          output: false
         };
       }
     processOutput({data}) {
-        const probs = _.map(data, item => _.round(item/255.0, 0.02));
-        const orderedData = _.chain(data).zip(outputs).orderBy(0, 'desc').map(item => [_.round(item[0]/255.0, 2), item[1]]).value();
-        const outputData = _.chain(orderedData).take(3).map(item => `${item[1]}: ${item[0]}`).join('\n').value();
-        const time = Date.now() - (_currentInstant || Date.now());
-        const output = `Guesses:\n${outputData}\nTime:${time} ms`;
-        this.setState(state => ({
-          output
-        }));
-        _currentInstant = Date.now();
-      }
+      const confidence = parseFloat(data).toFixed(3) > 0.85
+      this.setState(() => {
+        output: confidence
+      })
+    }
 
       render() {
         const modelParams = {
-          file: "mobilenet_v1_1.0_224_quant.tflite",
-          inputDimX: 224,
-          inputDimY: 224,
-          outputDim: 1001,
+          file: "<file_name>.tflite",
+          inputDimX: 300, //Model input dimension
+          inputDimY: 300, //Model input dimension
+          isQuantized: false, // set to true if quantized
           freqms: 0
         };
         return (
@@ -96,7 +86,7 @@ Replace the content of App.js in your project root directory with the following:
                 onModelProcessed={data => this.processOutput(data)}
                 modelParams={modelParams}
             >
-              <Text style={styles.cameraText}>{this.state.output}</Text>
+              {outpur && <Text style={styles.cameraText}>"Hello World"</Text>}
             </RNCamera>
           </View>
         );
@@ -127,33 +117,6 @@ We're done! Run your app with the following command.
 ```
 react-native run-android
 ```
-
-![Image Classification FTW!](https://cdn-images-1.medium.com/max/2000/1*9gvd0iTkVIlI4FvfGim6gg.gif)_Image Classification FTW!_
-
-To convert this to a hotdog not-hotdog app, just replace the processOutput function above with the following:
-
-```
-processOutput({data}) {
-      const isHotDogProb = data[935];
-      const isHotDog = isHotDogProb > 0.2 ? "HotDog" : "Not HotDog";
-      const time = Date.now() - (_currentInstant || Date.now());
-      const output = `${isHotDog}\nTime:${time} ms`;
-      this.setState(state => ({
-       output
-      }));
-     _currentInstant = Date.now();
-    }
-```
-
-Run your app with the following command.
-
-```
-   react-native run-android
-```
-
-![It's HotDog](https://cdn-images-1.medium.com/max/2000/1*JUPsOWLBvBwQoP4jHwv__A.gif)
-
-Jian Yang would be proud :)
 
 This project has a lot of rough edges. I hope to clean up this up a lot more in the coming days. The rest of the features are the same as `react-native-camera`.
 Links:

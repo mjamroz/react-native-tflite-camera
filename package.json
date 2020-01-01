@@ -46,7 +46,8 @@
     "native",
     "qr",
     "react",
-    "react-native"
+    "react-native",
+    "tflite"
   ],
   "license": "MIT AND Apache-2.0 AND BSD-3-Clause",
   "lint-staged": {
