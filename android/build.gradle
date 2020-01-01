@@ -53,6 +53,10 @@ android {
     }
   }
 
+  aaptOptions {
+    noCompress "tflite"
+  }
+
   lintOptions {
     abortOnError false
     warning 'InvalidPackage'
@@ -82,8 +86,8 @@ dependencies {
   def googlePlayServicesVisionVersion = safeExtGet('googlePlayServicesVisionVersion', safeExtGet('googlePlayServicesVersion', '17.0.2'))
 
   implementation 'com.facebook.react:react-native:+'
+  implementation 'org.tensorflow:tensorflow-lite:0.0.0-nightly'
   implementation "com.google.zxing:core:3.3.3"
-  implementation 'org.tensorflow:tensorflow-lite:+'
   implementation "com.drewnoakes:metadata-extractor:2.11.0"
   generalImplementation "com.google.android.gms:play-services-vision:$googlePlayServicesVisionVersion"
   implementation "androidx.exifinterface:exifinterface:1.0.0"

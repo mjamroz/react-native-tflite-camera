@@ -842,7 +842,6 @@ export default class Camera extends React.Component<PropsType, StateType> {
     }
 
     if (props.onModelProcessed && props.modelParams) {
-      console.log(NativeModules);
       newProps.modelParams = props.modelParams;
     }
 

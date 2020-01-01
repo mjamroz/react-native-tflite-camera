@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.media.CamcorderProfile;
@@ -16,6 +17,7 @@ import android.view.View;
 
 import androidx.core.content.ContextCompat;
 
+import com.drew.lang.annotations.NotNull;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.Promise;
@@ -52,10 +54,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -65,7 +69,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 //import java.nio.MappedByteBuffer;
 
 public class RNCameraView extends CameraView implements LifecycleEventListener, BarCodeScannerAsyncTaskDelegate, FaceDetectorAsyncTaskDelegate,
-    BarcodeDetectorAsyncTaskDelegate, TextRecognizerAsyncTaskDelegate, PictureSavedDelegate {
+    BarcodeDetectorAsyncTaskDelegate, TextRecognizerAsyncTaskDelegate, PictureSavedDelegate, ModelProcessorAsyncTaskDelegate {
   private ThemedReactContext mThemedReactContext;
   private Queue<Promise> mPictureTakenPromises = new ConcurrentLinkedQueue<>();
   private Map<Promise, ReadableMap> mPictureTakenOptions = new ConcurrentHashMap<>();
@@ -101,7 +105,24 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private int mModelImageDimX;
   private int mModelImageDimY;
   private int mModelOutputDim;
-  private ByteBuffer mModelOutput;
+  private boolean isModelQuantized;
+  // Float model
+  private static final float IMAGE_MEAN = 128.0f;
+  private static final float IMAGE_STD = 128.0f;
+  // Number of threads in the java app
+  private static final int NUM_THREADS = 4;
+  // outputLocations: array of shape [Batchsize, NUM_DETECTIONS,4]
+  // contains the location of detected boxes
+  private float[][][] outputLocations;
+  // outputClasses: array of shape [Batchsize, NUM_DETECTIONS]
+  // contains the classes of detected boxes
+  private float[][] outputClasses;
+  // outputScores: array of shape [Batchsize, NUM_DETECTIONS]
+  // contains the scores of detected boxes
+  private float[][] outputScores;
+  // numDetections: array of shape [Batchsize]
+  // contains the number of detected boxes
+  private float[] numDetections;
   private boolean mShouldDetectFaces = false;
   private boolean mShouldGoogleDetectBarcodes = false;
   private boolean mShouldScanBarCodes = false;
@@ -223,9 +244,10 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
 
         if (willCallModelTask) {
           modelProcessorTaskLock = true;
+          Log.d("willCallModelTask", "Called");
           getImageData((TextureView) cameraView.getView());
           ModelProcessorAsyncTaskDelegate delegate = (ModelProcessorAsyncTaskDelegate) cameraView;
-          new ModelProcessorAsyncTask(delegate, mModelProcessor, mModelInput, mModelOutput, mModelMaxFreqms, width, height, correctRotation).execute();
+          new ModelProcessorAsyncTask(delegate, mModelProcessor, mModelInput, mModelMaxFreqms, width, height, correctRotation).execute();
         }
       }
     });
@@ -240,15 +262,21 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       return;
     }
 
-    mModelInput.rewind();
     bitmap.getPixels(mModelViewBuf, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-    int pixel = 0;
+    mModelInput.rewind();
     for (int i = 0; i < mModelImageDimX; ++i) {
       for (int j = 0; j < mModelImageDimY; ++j) {
-        final int val = mModelViewBuf[pixel++];
-        mModelInput.put((byte) ((val >> 16) & 0xFF));
-        mModelInput.put((byte) ((val >> 8) & 0xFF));
-        mModelInput.put((byte) (val & 0xFF));
+        int val = mModelViewBuf[i * mModelImageDimX + j];
+        if(isModelQuantized){
+          // Quantized model
+          mModelInput.put((byte) ((val >> 16) & 0xFF));
+          mModelInput.put((byte) ((val >> 8) & 0xFF));
+          mModelInput.put((byte) (val & 0xFF));
+        }else {
+          mModelInput.putFloat((((val >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+          mModelInput.putFloat((((val >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+          mModelInput.putFloat(((val & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+        }
       }
     }
   }
@@ -565,15 +593,23 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   }
 
   private void setupModelProcessor() {
-
+    int numBytesPerChannel;
     try {
-      mModelProcessor = new Interpreter(loadModelFile(), options);
-      mModelInput = ByteBuffer.allocateDirect(mModelImageDimX * mModelImageDimY * 3);
+      if (isModelQuantized){
+        numBytesPerChannel = 1; // Quantized
+      }else {
+        numBytesPerChannel = 4; // Floating point
+      }
+      mModelProcessor = new Interpreter(loadModelFile());
+      mModelInput = ByteBuffer.allocateDirect(1 * mModelImageDimX * mModelImageDimY * 3 * numBytesPerChannel);
+      mModelInput.order(ByteOrder.nativeOrder());
       mModelViewBuf = new int[mModelImageDimX * mModelImageDimY];
-      mModelOutput = ByteBuffer.allocateDirect(mModelOutputDim);
-    } catch(Exception e) {
-      Log.v("error", "setupModelProcessor", e);
-    }
+      mModelProcessor.setNumThreads(NUM_THREADS);
+      outputLocations = new float[1][10][4];
+      outputClasses = new float[1][10];
+      outputScores = new float[1][10];
+      numDetections = new float[1];
+    } catch(Exception e) {}
   }
 
   private MappedByteBuffer loadModelFile() throws IOException {
@@ -585,14 +621,15 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
   }
 
-  public void setModelFile(String modelFile, int inputDimX, int inputDimY, int outputDim, int freqms) {
+  public void setModelFile(String modelFile, int inputDimX, int inputDimY, boolean quantized, int freqms) {
     this.mModelFile = modelFile;
     this.mModelImageDimX = inputDimX;
     this.mModelImageDimY = inputDimY;
-    this.mModelOutputDim = outputDim;
+    this.isModelQuantized = quantized;
     this.mModelMaxFreqms = freqms;
     boolean shouldProcessModel = (modelFile != null);
     if (shouldProcessModel && mModelProcessor == null) {
+      Log.v("setModelFile", "if called");
       setupModelProcessor();
     }
     this.mShouldProcessModel = shouldProcessModel;
@@ -600,15 +637,14 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
 
   }
 
-  public void onModelProcessed(ByteBuffer data, int sourceWidth, int sourceHeight, int sourceRotation) {
+  @Override
+  public void onModelProcessed(String data, int sourceWidth, int sourceHeight, int sourceRotation) {
     if (!mShouldProcessModel) {
       return;
     }
-
-    ByteBuffer dataDetected = data == null ? ByteBuffer.allocate(0) : data;
     ImageDimensions dimensions = new ImageDimensions(sourceWidth, sourceHeight, sourceRotation, getFacing());
 
-    RNCameraViewHelper.emitModelProcessedEvent(this, dataDetected, dimensions);
+    RNCameraViewHelper.emitModelProcessedEvent(this, data, dimensions);
   }
 
   @Override
@@ -616,7 +652,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     textRecognizerTaskLock = false;
   }
 
-
+  @Override
   public void onModelProcessorTaskCompleted() {
     modelProcessorTaskLock = false;
   }

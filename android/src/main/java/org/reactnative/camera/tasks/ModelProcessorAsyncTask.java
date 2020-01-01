@@ -5,25 +5,40 @@ import android.os.SystemClock;
 import org.tensorflow.lite.Interpreter;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 
-public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, ByteBuffer> {
+public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, String> {
 
     private ModelProcessorAsyncTaskDelegate mDelegate;
     private Interpreter mModelProcessor;
     private ByteBuffer mInputBuf;
-    private ByteBuffer mOutputBuf;
     private int mModelMaxFreqms;
     private int mWidth;
     private int mHeight;
     private int mRotation;
+    // outputLocations: array of shape [Batchsize, NUM_DETECTIONS,4]
+    // contains the location of detected boxes
+    private float[][][] outputLocations;
+    // outputClasses: array of shape [Batchsize, NUM_DETECTIONS]
+    // contains the classes of detected boxes
+    private float[][] outputClasses;
+    // outputScores: array of shape [Batchsize, NUM_DETECTIONS]
+    // contains the scores of detected boxes
+    private float[][] outputScores;
+    // numDetections: array of shape [Batchsize]
+    // contains the number of detected boxes
+    private float[] numDetections;
+    private String confidence;
 
     public ModelProcessorAsyncTask(
             ModelProcessorAsyncTaskDelegate delegate,
             Interpreter modelProcessor,
             ByteBuffer inputBuf,
-            ByteBuffer outputBuf,
             int modelMaxFreqms,
             int width,
             int height,
@@ -32,7 +47,6 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, By
         mDelegate = delegate;
         mModelProcessor = modelProcessor;
         mInputBuf = inputBuf;
-        mOutputBuf = outputBuf;
         mModelMaxFreqms = modelMaxFreqms;
         mWidth = width;
         mHeight = height;
@@ -40,15 +54,24 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, By
     }
 
     @Override
-    protected ByteBuffer doInBackground(Void... ignored) {
+    protected String doInBackground(Void... ignored) {
         if (isCancelled() || mDelegate == null || mModelProcessor == null) {
             return null;
         }
         long startTime = SystemClock.uptimeMillis();
         try {
-            mInputBuf.rewind();
-            mOutputBuf.rewind();
-            mModelProcessor.run(mInputBuf, mOutputBuf);
+            outputLocations = new float[1][10][4];
+            outputClasses = new float[1][10];
+            outputScores = new float[1][10];
+            numDetections = new float[1];
+
+            Object[] inputArray = {mInputBuf};
+            Map<Integer, Object> outputMap = new HashMap<>();
+            outputMap.put(0, outputLocations);
+            outputMap.put(1, outputClasses);
+            outputMap.put(2, outputScores);
+            outputMap.put(3, numDetections);
+            mModelProcessor.runForMultipleInputsOutputs(inputArray, outputMap);
         } catch (Exception e){}
         try {
             if (mModelMaxFreqms > 0) {
@@ -59,11 +82,22 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, By
                 }
             }
         } catch (Exception e) {}
-        return mOutputBuf;
+        final ArrayList recognitions = new ArrayList(10);
+        for (int i = 0; i < 10; ++i) {
+            if(inRange(outputScores[0][i], 1, 0)){
+                recognitions.add((int) i, outputScores[0][i]);
+            }
+        }
+        confidence = String.valueOf(Collections.max(recognitions));
+        return confidence;
+    }
+
+    private boolean inRange(float number, float max, float min) {
+        return number < max && number >= min;
     }
 
     @Override
-    protected void onPostExecute(ByteBuffer data) {
+    protected void onPostExecute(String data) {
         super.onPostExecute(data);
 
         if (data != null) {
