@@ -36,7 +36,9 @@ import org.reactnative.facedetector.RNFaceDetector;
 
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 
 public class RNCameraViewHelper {
 
@@ -313,7 +315,7 @@ public class RNCameraViewHelper {
 
   public static void emitModelProcessedEvent(
           ViewGroup view,
-          String data,
+          HashMap[] data,
           ImageDimensions dimensions) {
     float density = view.getResources().getDisplayMetrics().density;
 

@@ -57,6 +57,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -97,6 +98,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private RNBarcodeDetector mGoogleBarcodeDetector;
   private TextRecognizer mTextRecognizer;
   private String mModelFile;
+  private String mLabelFile;
   private final Interpreter.Options options = new Interpreter.Options();
   private Interpreter mModelProcessor;
   private int mModelMaxFreqms;
@@ -247,7 +249,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
           Log.d("willCallModelTask", "Called");
           getImageData((TextureView) cameraView.getView());
           ModelProcessorAsyncTaskDelegate delegate = (ModelProcessorAsyncTaskDelegate) cameraView;
-          new ModelProcessorAsyncTask(delegate, mModelProcessor, mModelInput, mModelMaxFreqms, width, height, correctRotation).execute();
+          new ModelProcessorAsyncTask(delegate, mModelProcessor, mModelInput, mModelMaxFreqms, mThemedReactContext, mLabelFile, width, height, correctRotation).execute();
         }
       }
     });
@@ -621,13 +623,14 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
   }
 
-  public void setModelFile(String modelFile, int inputDimX, int inputDimY, boolean quantized, int freqms) {
+  public void setModelFile(String modelFile, String labelFile, int inputDimX, int inputDimY, boolean quantized, int freqms) {
     this.mModelFile = modelFile;
+    this.mLabelFile = labelFile;
     this.mModelImageDimX = inputDimX;
     this.mModelImageDimY = inputDimY;
     this.isModelQuantized = quantized;
     this.mModelMaxFreqms = freqms;
-    boolean shouldProcessModel = (modelFile != null);
+    boolean shouldProcessModel = (modelFile != null && labelFile != null);
     if (shouldProcessModel && mModelProcessor == null) {
       Log.v("setModelFile", "if called");
       setupModelProcessor();
@@ -638,7 +641,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   }
 
   @Override
-  public void onModelProcessed(String data, int sourceWidth, int sourceHeight, int sourceRotation) {
+  public void onModelProcessed(HashMap[] data, int sourceWidth, int sourceHeight, int sourceRotation) {
     if (!mShouldProcessModel) {
       return;
     }

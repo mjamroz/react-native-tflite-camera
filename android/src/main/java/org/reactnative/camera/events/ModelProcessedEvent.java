@@ -7,6 +7,7 @@ import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
 
@@ -15,6 +16,10 @@ import org.reactnative.camera.utils.ImageDimensions;
 import org.reactnative.facedetector.FaceDetectorUtils;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 
 public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
@@ -25,14 +30,14 @@ public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
 
     private double mScaleX;
     private double mScaleY;
-    private String mData;
+    private HashMap[] mData;
     private ImageDimensions mImageDimensions;
 
     private ModelProcessedEvent() {}
 
     public static ModelProcessedEvent obtain(
             int viewTag,
-            String data,
+            HashMap[] data,
             ImageDimensions dimensions,
             double scaleX,
             double scaleY) {
@@ -46,7 +51,7 @@ public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
 
     private void init(
             int viewTag,
-            String data,
+            HashMap[] data,
             ImageDimensions dimensions,
             double scaleX,
             double scaleY) {
@@ -69,7 +74,14 @@ public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
 
     private WritableMap serializeEventData() {
         WritableArray dataList = Arguments.createArray();
-        dataList.pushString(mData);
+
+        for (int i=0; i<mData.length; i++){
+            WritableMap dataMap = Arguments.createMap();
+            for (Object key : mData[i].keySet()){
+                dataMap.putString(key.toString(), mData[i].get(key).toString());
+            }
+            dataList.pushMap(dataMap);
+        }
 
         WritableMap event = Arguments.createMap();
         event.putString("type", "textBlock");
