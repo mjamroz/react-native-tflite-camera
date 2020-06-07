@@ -30,14 +30,14 @@ public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
 
     private double mScaleX;
     private double mScaleY;
-    private HashMap[] mData;
+    private WritableMap[] mData;
     private ImageDimensions mImageDimensions;
 
     private ModelProcessedEvent() {}
 
     public static ModelProcessedEvent obtain(
             int viewTag,
-            HashMap[] data,
+            WritableMap[] data,
             ImageDimensions dimensions,
             double scaleX,
             double scaleY) {
@@ -51,7 +51,7 @@ public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
 
     private void init(
             int viewTag,
-            HashMap[] data,
+            WritableMap[] data,
             ImageDimensions dimensions,
             double scaleX,
             double scaleY) {
@@ -76,11 +76,7 @@ public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
         WritableArray dataList = Arguments.createArray();
 
         for (int i=0; i<mData.length; i++){
-            WritableMap dataMap = Arguments.createMap();
-            for (Object key : mData[i].keySet()){
-                dataMap.putString(key.toString(), mData[i].get(key).toString());
-            }
-            dataList.pushMap(dataMap);
+            dataList.pushMap(mData[i]);
         }
 
         WritableMap event = Arguments.createMap();

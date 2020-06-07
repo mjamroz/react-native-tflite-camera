@@ -3,6 +3,7 @@ package org.reactnative.camera.tasks;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.os.SystemClock;
+import com.facebook.react.bridge.Arguments;
 
 import com.facebook.react.uimanager.ThemedReactContext;
 
@@ -22,30 +23,21 @@ import java.util.Map;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
 
+import com.facebook.react.bridge.WritableArray;
+import java.util.PriorityQueue;
+import java.util.Comparator;
+import com.facebook.react.bridge.WritableMap;
 
-public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, HashMap[]> {
+public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, WritableMap[]> {
 
     private ModelProcessorAsyncTaskDelegate mDelegate;
     private Interpreter mModelProcessor;
     private ByteBuffer mInputBuf;
-    private int mModelMaxFreqms;
     private int mWidth;
     private int mHeight;
     private int mRotation;
     private String mLabel;
-    // outputLocations: array of shape [Batchsize, NUM_DETECTIONS,4]
-    // contains the location of detected boxes
-    private float[][][] outputLocations;
-    // outputClasses: array of shape [Batchsize, NUM_DETECTIONS]
-    // contains the classes of detected boxes
-    private float[][] outputClasses;
-    // outputScores: array of shape [Batchsize, NUM_DETECTIONS]
-    // contains the scores of detected boxes
-    private float[][] outputScores;
-    // numDetections: array of shape [Batchsize]
-    // contains the number of detected boxes
-    private float[] numDetections;
-    private String confidence;
+    private float[][] labelProb;
     private Vector<String> labels = new Vector<String>();
     private ThemedReactContext readReactContext;
 
@@ -53,7 +45,6 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Ha
             ModelProcessorAsyncTaskDelegate delegate,
             Interpreter modelProcessor,
             ByteBuffer inputBuf,
-            int modelMaxFreqms,
             ThemedReactContext mThemedReactContext,
             String mLabelFile,
             int width,
@@ -64,7 +55,6 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Ha
         mModelProcessor = modelProcessor;
         mInputBuf = inputBuf;
         readReactContext = mThemedReactContext;
-        mModelMaxFreqms = modelMaxFreqms;
         mLabel = mLabelFile;
         mWidth = width;
         mHeight = height;
@@ -72,7 +62,7 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Ha
     }
 
     @Override
-    protected HashMap[] doInBackground(Void... ignored) {
+    protected WritableMap[] doInBackground(Void... ignored) {
         if (isCancelled() || mDelegate == null || mModelProcessor == null || mLabel == null) {
             return null;
         }
@@ -85,23 +75,19 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Ha
             }
             br.close();
         }catch (Exception e) { System.out.println(e);}
-        
+
 
         long startTime = SystemClock.uptimeMillis();
         try {
-            outputLocations = new float[1][10][4];
-            outputClasses = new float[1][10];
-            outputScores = new float[1][10];
-            numDetections = new float[1];
+            labelProb = new float[1][labels.size()];
+            Map<Integer, Object> outputs = new HashMap<>();
+            Object[] inputs = { mInputBuf };
+            outputs.put(0, labelProb);
+            mModelProcessor.runForMultipleInputsOutputs(inputs, outputs);
+        } catch (Exception e){
+                System.out.println(e);
+        }
 
-            Object[] inputArray = {mInputBuf};
-            Map<Integer, Object> outputMap = new HashMap<>();
-            outputMap.put(0, outputLocations);
-            outputMap.put(1, outputClasses);
-            outputMap.put(2, outputScores);
-            outputMap.put(3, numDetections);
-            mModelProcessor.runForMultipleInputsOutputs(inputArray, outputMap);
-        } catch (Exception e){}
 //        try {
 //            if (mModelMaxFreqms > 0) {
 //                long endTime = SystemClock.uptimeMillis();
@@ -111,25 +97,56 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Ha
 //                }
 //            }
 //        } catch (Exception e) {}
-        final HashMap[] recognitions = new HashMap[10];
-        int labelOffset = 1;
-        for (int i = 0; i < 10; ++i) {
-            HashMap<String, String> arrMap = new HashMap<String, String>();
-            String confidence = String.valueOf(outputScores[0][i]);
-            arrMap.put("classname", labels.get((int) outputClasses[0][i] + labelOffset));
-            arrMap.put("confidence", confidence);
-            recognitions[i] = arrMap;
+        final float[] classes = new float[labels.size()];
+        for (int c = 0; c < labels.size(); c++) {
+            classes[c] = labelProb[0][c];
+        }
+        softmax(classes);
+        PriorityQueue<WritableMap> pq =
+            new PriorityQueue<>(
+                1,
+                new Comparator<WritableMap>() {
+                @Override
+                public int compare(WritableMap lhs, WritableMap rhs) {
+                    return Double.compare(rhs.getDouble("confidence"), lhs.getDouble("confidence"));
+                }
+                });
+
+        for (int i = 0; i < labels.size(); ++i) {
+            if (classes[i] < 0.001)
+                continue;
+            WritableMap res = Arguments.createMap();
+            res.putString("label", labels.size() > i ? labels.get(i) : "unknown");
+            res.putDouble("confidence", classes[i]);
+            pq.add(res);
         }
 
-        return recognitions;
+    int numResults = 5;
+    int recognitionsSize = Math.min(pq.size(), numResults);
+    final WritableMap[] recognitions = new WritableMap[recognitionsSize];
+    for (int i = 0; i < recognitionsSize; ++i) {
+      recognitions[i] = pq.poll();
+    }
+      return recognitions;
     }
 
-    private boolean inRange(float number, float max, float min) {
-        return number < max && number >= min;
+  private void softmax(final float[] vals) {
+    float max = Float.NEGATIVE_INFINITY;
+    for (final float val : vals) {
+      max = Math.max(max, val);
     }
+    float sum = 0.0f;
+    for (int i = 0; i < vals.length; ++i) {
+      vals[i] = (float) Math.exp(vals[i] - max);
+      sum += vals[i];
+    }
+    for (int i = 0; i < vals.length; ++i) {
+      vals[i] = vals[i] / sum;
+    }
+  }
 
     @Override
-    protected void onPostExecute(HashMap[] data) {
+    protected void onPostExecute(WritableMap[] data) {
         super.onPostExecute(data);
 
         if (data != null) {

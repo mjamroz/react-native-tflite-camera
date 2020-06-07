@@ -315,7 +315,7 @@ public class RNCameraViewHelper {
 
   public static void emitModelProcessedEvent(
           ViewGroup view,
-          HashMap[] data,
+          WritableMap[] data,
           ImageDimensions dimensions) {
     float density = view.getResources().getDisplayMetrics().density;
 
