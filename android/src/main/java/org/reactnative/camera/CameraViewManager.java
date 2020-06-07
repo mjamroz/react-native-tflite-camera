@@ -186,10 +186,6 @@ public class CameraViewManager extends ViewGroupManager<RNCameraView> {
   public void setModelParams(RNCameraView view, ReadableMap model) {
     String modelFile = model.getString("file");
     String labelFile = model.getString("label");
-    int inputDimX = model.getInt("inputDimX");
-    int inputDimY = model.getInt("inputDimY");
-    boolean quantized = model.getBoolean("isQuantized");
-    int freqms = model.hasKey("freqms") ? model.getInt("freqms") : 0;
-    view.setModelFile(modelFile, labelFile, inputDimX, inputDimY, quantized, freqms);
+    view.setModelFile(modelFile, labelFile);
   }
 }

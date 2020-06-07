@@ -75,10 +75,8 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
   private int mModelMaxFreqms;
   private ByteBuffer mModelInput;
   private int[] intValues;
-  private int mModelImageDimX;
-  private int mModelImageDimY;
+  private int inputSize;
   private static final int NUM_THREADS = 1;
-  private int mClasses;
   private boolean mShouldProcessModel = false;
   private int mPaddingX;
   private int mPaddingY;
@@ -153,17 +151,17 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
           Log.d("willCallModelTask", "Called");
           getImageData((TextureView) cameraView.getView());
           ModelProcessorAsyncTaskDelegate delegate = (ModelProcessorAsyncTaskDelegate) cameraView;
-          new ModelProcessorAsyncTask(delegate, mModelProcessor, mModelInput, mModelMaxFreqms, mThemedReactContext, mLabelFile, width, height, correctRotation).execute();
+          new ModelProcessorAsyncTask(delegate, mModelProcessor, mModelInput, mThemedReactContext, mLabelFile, width, height, correctRotation).execute();
         }
       }
     });
   }
 
   private void getImageData(TextureView view) {
-    Bitmap bitmap = view.getBitmap(mModelImageDimX, mModelImageDimY);
+    Bitmap bitmap = view.getBitmap(this.inputSize, this.inputSize);
         // Bitmap bitmap = view.getBitmap(view.getMeasuredWidth(),
         // view.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
-    bitmap = Bitmap.createScaledBitmap(bitmap, mModelImageDimX, mModelImageDimY, true);
+    bitmap = Bitmap.createScaledBitmap(bitmap, this.inputSize, this.inputSize, true);
     if (bitmap == null) {
       return;
     }
@@ -176,12 +174,12 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
       final float imageStd2= 0.229f * 225.0f;
       final float imageStd1= 0.224f * 225.0f;
       final float imageStd3= 0.225f * 225.0f;
-intValues = new int[mModelImageDimX* mModelImageDimY];
+intValues = new int[this.inputSize* this.inputSize];
     bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
     mModelInput.rewind();
     int pixel = 0;
-    for (int i = 0; i < mModelImageDimX; ++i) {
-      for (int j = 0; j < mModelImageDimY; ++j) {
+    for (int i = 0; i < this.inputSize; ++i) {
+      for (int j = 0; j < this.inputSize; ++j) {
         int pixelValue = intValues[pixel++];
           mModelInput.putFloat((((pixelValue >> 16) & 0xFF) - imageMean1) / imageStd1);
           mModelInput.putFloat((((pixelValue >> 8) & 0xFF) - imageMean2) / imageStd2);
@@ -312,11 +310,11 @@ intValues = new int[mModelImageDimX* mModelImageDimY];
     try {
       mModelProcessor = new Interpreter(loadModelFile());
       Tensor tensor = mModelProcessor.getInputTensor(0);
-      int inputSize = tensor.shape()[1];
+      this.inputSize = tensor.shape()[1];
       int inputChannels = tensor.shape()[3];
       int bytePerChannel = tensor.dataType() == DataType.UINT8 ? 1 : 4;
 
-      mModelInput = ByteBuffer.allocateDirect(1 * inputSize * inputSize *  inputChannels * bytePerChannel);
+      mModelInput = ByteBuffer.allocateDirect(1 * this.inputSize * this.inputSize *  inputChannels * bytePerChannel);
 
       mModelInput.order(ByteOrder.nativeOrder());
       mModelProcessor.setNumThreads(NUM_THREADS);
@@ -332,12 +330,9 @@ intValues = new int[mModelImageDimX* mModelImageDimY];
     return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
   }
 
-  public void setModelFile(String modelFile, String labelFile, int inputDimX, int inputDimY, int classes) {
+  public void setModelFile(String modelFile, String labelFile) {
     this.mModelFile = modelFile;
     this.mLabelFile = labelFile;
-    this.mModelImageDimX = inputDimX;
-    this.mModelImageDimY = inputDimY;
-    this.mClasses = classes;
     boolean shouldProcessModel = (modelFile != null && labelFile != null);
     if (shouldProcessModel && mModelProcessor == null) {
       Log.v("setModelFile", "if called");
