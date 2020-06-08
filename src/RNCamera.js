@@ -93,142 +93,6 @@ const styles = StyleSheet.create({
 type Orientation = 'auto' | 'landscapeLeft' | 'landscapeRight' | 'portrait' | 'portraitUpsideDown';
 type OrientationNumber = 1 | 2 | 3 | 4;
 
-type PictureOptions = {
-  quality?: number,
-  orientation?: Orientation | OrientationNumber,
-  base64?: boolean,
-  mirrorImage?: boolean,
-  exif?: boolean,
-  writeExif?: boolean | { [name: string]: any },
-  width?: number,
-  fixOrientation?: boolean,
-  forceUpOrientation?: boolean,
-  pauseAfterCapture?: boolean,
-};
-
-type TrackedFaceFeature = FaceFeature & {
-  faceID?: number,
-};
-
-type TrackedTextFeature = {
-  type: string,
-  bounds: {
-    size: {
-      width: number,
-      height: number,
-    },
-    origin: {
-      x: number,
-      y: number,
-    },
-  },
-  value: string,
-  components: Array<TrackedTextFeature>,
-};
-
-type TrackedBarcodeFeature = {
-  bounds: {
-    size: {
-      width: number,
-      height: number,
-    },
-    origin: {
-      x: number,
-      y: number,
-    },
-  },
-  data: string,
-  dataRaw: string,
-  type: BarcodeType,
-  format?: string,
-  addresses?: {
-    addressesType?: 'UNKNOWN' | 'Work' | 'Home',
-    addressLines?: string[],
-  }[],
-  emails?: Email[],
-  phones?: Phone[],
-  urls: ?(string[]),
-  name?: {
-    firstName?: string,
-    lastName?: string,
-    middleName?: string,
-    prefix?: string,
-    pronounciation?: string,
-    suffix?: string,
-    formattedName?: string,
-  },
-  phone?: Phone,
-  organization?: string,
-  latitude?: number,
-  longitude?: number,
-  ssid?: string,
-  password?: string,
-  encryptionType?: string,
-  title?: string,
-  url?: string,
-  firstName?: string,
-  middleName?: string,
-  lastName?: string,
-  gender?: string,
-  addressCity?: string,
-  addressState?: string,
-  addressStreet?: string,
-  addressZip?: string,
-  birthDate?: string,
-  documentType?: string,
-  licenseNumber?: string,
-  expiryDate?: string,
-  issuingDate?: string,
-  issuingCountry?: string,
-  eventDescription?: string,
-  location?: string,
-  organizer?: string,
-  status?: string,
-  summary?: string,
-  start?: string,
-  end?: string,
-  email?: Email,
-  phoneNumber?: string,
-  message?: string,
-};
-
-type BarcodeType =
-  | 'EMAIL'
-  | 'PHONE'
-  | 'CALENDAR_EVENT'
-  | 'DRIVER_LICENSE'
-  | 'GEO'
-  | 'SMS'
-  | 'CONTACT_INFO'
-  | 'WIFI'
-  | 'TEXT'
-  | 'ISBN'
-  | 'PRODUCT'
-  | 'URL';
-
-type Email = {
-  address?: string,
-  body?: string,
-  subject?: string,
-  emailType?: 'UNKNOWN' | 'Work' | 'Home',
-};
-
-type Phone = {
-  number?: string,
-  phoneType?: 'UNKNOWN' | 'Work' | 'Home' | 'Fax' | 'Mobile',
-};
-
-type RecordingOptions = {
-  maxDuration?: number,
-  maxFileSize?: number,
-  orientation?: Orientation,
-  quality?: number | string,
-  codec?: string,
-  mute?: boolean,
-  path?: string,
-  videoBitrate?: number,
-};
-
 type EventCallbackArgumentsType = {
   nativeEvent: Object,
 };
@@ -250,25 +114,14 @@ type PropsType = typeof View.props & {
   onAudioInterrupted?: Function,
   onAudioConnected?: Function,
   onStatusChange?: Function,
-  onBarCodeRead?: Function,
-  onPictureTaken?: Function,
-  onPictureSaved?: Function,
-  onGoogleVisionBarcodesDetected?: ({ barcodes: Array<TrackedBarcodeFeature> }) => void,
   onSubjectAreaChanged?: ({ nativeEvent: { prevPoint: {| x: number, y: number |} } }) => void,
   faceDetectionMode?: number,
   trackingEnabled?: boolean,
   flashMode?: number | string,
   exposure?: number,
-  barCodeTypes?: Array<string>,
-  googleVisionBarcodeType?: number,
-  googleVisionBarcodeMode?: number,
   whiteBalance?: number | string,
-  faceDetectionLandmarks?: number,
   autoFocus?: string | boolean | number,
   autoFocusPointOfInterest?: { x: number, y: number },
-  faceDetectionClassifications?: number,
-  onFacesDetected?: ({ faces: Array<TrackedFaceFeature> }) => void,
-  onTextRecognized?: ({ textBlocks: Array<TrackedTextFeature> }) => void,
   onModelProcessed?: () => void,
   captureAudio?: boolean,
   keepAudioSession?: boolean,
@@ -316,21 +169,6 @@ const CameraManager: Object = NativeModules.RNCameraManager ||
       off: 1,
     },
     WhiteBalance: {},
-    BarCodeType: {},
-    FaceDetection: {
-      fast: 1,
-      Mode: {},
-      Landmarks: {
-        none: 0,
-      },
-      Classifications: {
-        none: 0,
-      },
-    },
-    GoogleVisionBarcodeDetection: {
-      BarcodeType: 0,
-      BarcodeMode: 0,
-    },
   };
 
 const EventThrottleMs = 500;
@@ -351,9 +189,6 @@ export default class Camera extends React.Component<PropsType, StateType> {
     WhiteBalance: CameraManager.WhiteBalance,
     VideoQuality: CameraManager.VideoQuality,
     VideoCodec: CameraManager.VideoCodec,
-    BarCodeType: CameraManager.BarCodeType,
-    GoogleVisionBarcodeDetection: CameraManager.GoogleVisionBarcodeDetection,
-    FaceDetection: CameraManager.FaceDetection,
     CameraStatus,
     RecordAudioPermissionStatus: RecordAudioPermissionStatusEnum,
     VideoStabilization: CameraManager.VideoStabilization,
@@ -373,10 +208,6 @@ export default class Camera extends React.Component<PropsType, StateType> {
     exposure: CameraManager.Exposure,
     autoFocus: CameraManager.AutoFocus,
     whiteBalance: CameraManager.WhiteBalance,
-    faceDetectionMode: (CameraManager.FaceDetection || {}).Mode,
-    faceDetectionLandmarks: (CameraManager.FaceDetection || {}).Landmarks,
-    faceDetectionClassifications: (CameraManager.FaceDetection || {}).Classifications,
-    googleVisionBarcodeType: (CameraManager.GoogleVisionBarcodeDetection || {}).BarcodeType,
     videoStabilizationMode: CameraManager.VideoStabilization || {},
   };
 
@@ -391,21 +222,9 @@ export default class Camera extends React.Component<PropsType, StateType> {
     onAudioInterrupted: PropTypes.func,
     onAudioConnected: PropTypes.func,
     onStatusChange: PropTypes.func,
-    onBarCodeRead: PropTypes.func,
-    onPictureTaken: PropTypes.func,
-    onPictureSaved: PropTypes.func,
-    onGoogleVisionBarcodesDetected: PropTypes.func,
-    onFacesDetected: PropTypes.func,
-    onTextRecognized: PropTypes.func,
     onModelProcessed: PropTypes.func,
     onSubjectAreaChanged: PropTypes.func,
     trackingEnabled: PropTypes.bool,
-    faceDetectionMode: PropTypes.number,
-    faceDetectionLandmarks: PropTypes.number,
-    faceDetectionClassifications: PropTypes.number,
-    barCodeTypes: PropTypes.arrayOf(PropTypes.string),
-    googleVisionBarcodeType: PropTypes.number,
-    googleVisionBarcodeMode: PropTypes.number,
     type: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     cameraId: PropTypes.string,
     flashMode: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
@@ -441,14 +260,6 @@ export default class Camera extends React.Component<PropsType, StateType> {
     flashMode: CameraManager.FlashMode.off,
     exposure: -1,
     whiteBalance: CameraManager.WhiteBalance.auto,
-    faceDetectionMode: (CameraManager.FaceDetection || {}).fast,
-    barCodeTypes: Object.values(CameraManager.BarCodeType),
-    googleVisionBarcodeType: ((CameraManager.GoogleVisionBarcodeDetection || {}).BarcodeType || {})
-      .None,
-    googleVisionBarcodeMode: ((CameraManager.GoogleVisionBarcodeDetection || {}).BarcodeMode || {})
-      .NORMAL,
-    faceDetectionLandmarks: ((CameraManager.FaceDetection || {}).Landmarks || {}).none,
-    faceDetectionClassifications: ((CameraManager.FaceDetection || {}).Classifications || {}).none,
     permissionDialogTitle: '',
     permissionDialogMessage: '',
     androidCameraPermissionOptions: {
@@ -496,38 +307,6 @@ export default class Camera extends React.Component<PropsType, StateType> {
     };
   }
 
-  async takePictureAsync(options?: PictureOptions) {
-    if (!options) {
-      options = {};
-    }
-    if (!options.quality) {
-      options.quality = 1;
-    }
-
-    if (options.orientation) {
-      if (typeof options.orientation !== 'number') {
-        const { orientation } = options;
-        options.orientation = CameraManager.Orientation[orientation];
-        if (__DEV__) {
-          if (typeof options.orientation !== 'number') {
-            // eslint-disable-next-line no-console
-            console.warn(`Orientation '${orientation}' is invalid.`);
-          }
-        }
-      }
-    }
-
-    if (options.pauseAfterCapture === undefined) {
-      options.pauseAfterCapture = false;
-    }
-
-    if (!this._cameraHandle) {
-      throw 'Camera handle cannot be null';
-    }
-
-    return await CameraManager.takePicture(options, this._cameraHandle);
-  }
-
   async getSupportedRatiosAsync() {
     if (Platform.OS === 'android') {
       return await CameraManager.getSupportedRatios(this._cameraHandle);
@@ -548,59 +327,6 @@ export default class Camera extends React.Component<PropsType, StateType> {
     //$FlowFixMe
     return await CameraManager.getAvailablePictureSizes(this.props.ratio, this._cameraHandle);
   };
-
-  async recordAsync(options?: RecordingOptions) {
-    if (!options || typeof options !== 'object') {
-      options = {};
-    } else if (typeof options.quality === 'string') {
-      options.quality = Camera.Constants.VideoQuality[options.quality];
-    }
-    if (options.orientation) {
-      if (typeof options.orientation !== 'number') {
-        const { orientation } = options;
-        options.orientation = CameraManager.Orientation[orientation];
-        if (__DEV__) {
-          if (typeof options.orientation !== 'number') {
-            // eslint-disable-next-line no-console
-            console.warn(`Orientation '${orientation}' is invalid.`);
-          }
-        }
-      }
-    }
-
-    if (__DEV__) {
-      if (options.videoBitrate && typeof options.videoBitrate !== 'number') {
-        // eslint-disable-next-line no-console
-        console.warn('Video Bitrate should be a positive integer');
-      }
-    }
-
-    const { recordAudioPermissionStatus } = this.state;
-    const { captureAudio } = this.props;
-
-    if (
-      !captureAudio ||
-      recordAudioPermissionStatus !== RecordAudioPermissionStatusEnum.AUTHORIZED
-    ) {
-      options.mute = true;
-    }
-
-    if (__DEV__) {
-      if (
-        (!options.mute || captureAudio) &&
-        recordAudioPermissionStatus !== RecordAudioPermissionStatusEnum.AUTHORIZED
-      ) {
-        // eslint-disable-next-line no-console
-        console.warn('Recording with audio not possible. Permissions are missing.');
-      }
-    }
-
-    return await CameraManager.record(options, this._cameraHandle);
-  }
-
-  stopRecording() {
-    CameraManager.stopRecording(this._cameraHandle);
-  }
 
   pausePreview() {
     CameraManager.pausePreview(this._cameraHandle);
@@ -671,7 +397,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
     }
   };
 
-  _onSubjectAreaChanged = e => {
+  _onSubjectAreaChanged = (e) => {
     if (this.props.onSubjectAreaChanged) {
       this.props.onSubjectAreaChanged(e);
     }
@@ -802,14 +528,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
             onCameraReady={this._onCameraReady}
             onAudioInterrupted={this._onAudioInterrupted}
             onAudioConnected={this._onAudioConnected}
-            onGoogleVisionBarcodesDetected={this._onObjectDetected(
-              this.props.onGoogleVisionBarcodesDetected,
-            )}
-            onBarCodeRead={this._onObjectDetected(this.props.onBarCodeRead)}
-            onFacesDetected={this._onObjectDetected(this.props.onFacesDetected)}
-            onTextRecognized={this._onObjectDetected(this.props.onTextRecognized)}
             onModelProcessed={this._onObjectDetected(this.props.onModelProcessed)}
-            onPictureSaved={this._onPictureSaved}
             onSubjectAreaChanged={this._onSubjectAreaChanged}
           />
           {this.renderChildren()}
@@ -825,28 +544,11 @@ export default class Camera extends React.Component<PropsType, StateType> {
   _convertNativeProps({ children, ...props }: PropsType) {
     const newProps = mapValues(props, this._convertProp);
 
-    if (props.onBarCodeRead) {
-      newProps.barCodeScannerEnabled = true;
-    }
-
-    if (props.onGoogleVisionBarcodesDetected) {
-      newProps.googleVisionBarcodeDetectorEnabled = true;
-    }
-
-    if (props.onFacesDetected) {
-      newProps.faceDetectorEnabled = true;
-    }
-
-    if (props.onTextRecognized) {
-      newProps.textRecognizerEnabled = true;
-    }
-
     if (props.onModelProcessed && props.modelParams) {
       newProps.modelParams = props.modelParams;
     }
 
     if (Platform.OS === 'ios') {
-      delete newProps.googleVisionBarcodeMode;
       delete newProps.ratio;
     }
 
@@ -869,19 +571,11 @@ const RNCamera = requireNativeComponent('RNCamera', Camera, {
     accessibilityComponentType: true,
     accessibilityLabel: true,
     accessibilityLiveRegion: true,
-    barCodeScannerEnabled: true,
-    googleVisionBarcodeDetectorEnabled: true,
-    faceDetectorEnabled: true,
-    textRecognizerEnabled: true,
     modelFile: null,
     importantForAccessibility: true,
-    onBarCodeRead: true,
-    onGoogleVisionBarcodesDetected: true,
     onCameraReady: true,
     onAudioInterrupted: true,
     onAudioConnected: true,
-    onPictureSaved: true,
-    onFaceDetected: true,
     onLayout: true,
     onMountError: true,
     onSubjectAreaChanged: true,

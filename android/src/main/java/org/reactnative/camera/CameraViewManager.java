@@ -18,15 +18,7 @@ public class CameraViewManager extends ViewGroupManager<RNCameraView> {
   public enum Events {
     EVENT_CAMERA_READY("onCameraReady"),
     EVENT_ON_MOUNT_ERROR("onMountError"),
-    EVENT_ON_BAR_CODE_READ("onBarCodeRead"),
-    EVENT_ON_FACES_DETECTED("onFacesDetected"),
-    EVENT_ON_BARCODES_DETECTED("onGoogleVisionBarcodesDetected"),
-    EVENT_ON_FACE_DETECTION_ERROR("onFaceDetectionError"),
-    EVENT_ON_BARCODE_DETECTION_ERROR("onGoogleVisionBarcodeDetectionError"),
-    EVENT_ON_TEXT_RECOGNIZED("onTextRecognized"),
-    EVENT_ON_MODEL_PROCESSED("onModelProcessed"),
-    EVENT_ON_PICTURE_TAKEN("onPictureTaken"),
-    EVENT_ON_PICTURE_SAVED("onPictureSaved");
+    EVENT_ON_MODEL_PROCESSED("onModelProcessed");
 
     private final String mName;
 
@@ -126,60 +118,6 @@ public class CameraViewManager extends ViewGroupManager<RNCameraView> {
   @ReactProp(name = "pictureSize")
   public void setPictureSize(RNCameraView view, String size) {
     view.setPictureSize(size.equals("None") ? null : Size.parse(size));
-  }
-
-  @ReactProp(name = "barCodeTypes")
-  public void setBarCodeTypes(RNCameraView view, ReadableArray barCodeTypes) {
-  }
-
-  @ReactProp(name = "barCodeScannerEnabled")
-  public void setBarCodeScanning(RNCameraView view, boolean barCodeScannerEnabled) {
-  }
-
-  @ReactProp(name = "useCamera2Api")
-  public void setUseCamera2Api(RNCameraView view, boolean useCamera2Api) {
-    view.setUsingCamera2Api(useCamera2Api);
-  }
-
-  @ReactProp(name = "playSoundOnCapture")
-  public void setPlaySoundOnCapture(RNCameraView view, boolean playSoundOnCapture) {
-    view.setPlaySoundOnCapture(playSoundOnCapture);
-  }
-
-  @ReactProp(name = "faceDetectorEnabled")
-  public void setFaceDetecting(RNCameraView view, boolean faceDetectorEnabled) {
-  }
-
-  @ReactProp(name = "faceDetectionMode")
-  public void setFaceDetectionMode(RNCameraView view, int mode) {
-  }
-
-  @ReactProp(name = "faceDetectionLandmarks")
-  public void setFaceDetectionLandmarks(RNCameraView view, int landmarks) {
-  }
-
-  @ReactProp(name = "faceDetectionClassifications")
-  public void setFaceDetectionClassifications(RNCameraView view, int classifications) {
-  }
-
-  @ReactProp(name = "trackingEnabled")
-  public void setTracking(RNCameraView view, boolean trackingEnabled) {
-  }
-
-  @ReactProp(name = "googleVisionBarcodeDetectorEnabled")
-  public void setGoogleVisionBarcodeDetecting(RNCameraView view, boolean googleBarcodeDetectorEnabled) {
-  }
-
-  @ReactProp(name = "googleVisionBarcodeType")
-  public void setGoogleVisionBarcodeType(RNCameraView view, int barcodeType) {
-  }
-
-  @ReactProp(name = "googleVisionBarcodeMode")
-  public void setGoogleVisionBarcodeMode(RNCameraView view, int barcodeMode) {
-  }
-
-  @ReactProp(name = "textRecognizerEnabled")
-  public void setTextRecognizing(RNCameraView view, boolean textRecognizerEnabled) {
   }
 
   @ReactProp(name = "modelParams")

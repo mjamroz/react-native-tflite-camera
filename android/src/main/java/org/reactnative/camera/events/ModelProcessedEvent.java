@@ -13,7 +13,6 @@ import com.facebook.react.uimanager.events.RCTEventEmitter;
 
 import org.reactnative.camera.CameraViewManager;
 import org.reactnative.camera.utils.ImageDimensions;
-import org.reactnative.facedetector.FaceDetectorUtils;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -84,35 +83,6 @@ public class ModelProcessedEvent extends Event<ModelProcessedEvent> {
         event.putArray("data", dataList);
         event.putInt("target", getViewTag());
         return event;
-    }
-
-    private WritableMap rotateTextX(WritableMap text) {
-        ReadableMap faceBounds = text.getMap("bounds");
-
-        ReadableMap oldOrigin = faceBounds.getMap("origin");
-        WritableMap mirroredOrigin = FaceDetectorUtils.positionMirroredHorizontally(
-                oldOrigin, mImageDimensions.getWidth(), mScaleX);
-
-        double translateX = -faceBounds.getMap("size").getDouble("width");
-        WritableMap translatedMirroredOrigin = FaceDetectorUtils.positionTranslatedHorizontally(mirroredOrigin, translateX);
-
-        WritableMap newBounds = Arguments.createMap();
-        newBounds.merge(faceBounds);
-        newBounds.putMap("origin", translatedMirroredOrigin);
-
-        text.putMap("bounds", newBounds);
-
-        ReadableArray oldComponents = text.getArray("components");
-        WritableArray newComponents = Arguments.createArray();
-        for (int i = 0; i < oldComponents.size(); ++i) {
-            WritableMap component = Arguments.createMap();
-            component.merge(oldComponents.getMap(i));
-            rotateTextX(component);
-            newComponents.pushMap(component);
-        }
-        text.putArray("components", newComponents);
-
-        return text;
     }
 
 }
