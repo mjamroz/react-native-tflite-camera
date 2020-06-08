@@ -50,7 +50,7 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
             int width,
             int height,
             int rotation
-    ) {
+            ) {
         mDelegate = delegate;
         mModelProcessor = modelProcessor;
         mInputBuf = inputBuf;
@@ -59,25 +59,25 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
         mWidth = width;
         mHeight = height;
         mRotation = rotation;
-    }
+            }
 
     @Override
     protected WritableMap[] doInBackground(Void... ignored) {
         if (isCancelled() || mDelegate == null || mModelProcessor == null || mLabel == null) {
             return null;
         }
-        try {
-            InputStream fileDescriptor = readReactContext.getAssets().open(mLabel);
-            BufferedReader br = new BufferedReader(new InputStreamReader(fileDescriptor));
-            String line;
-            while ((line = br.readLine()) != null) {
-                labels.add(line);
-            }
-            br.close();
-        }catch (Exception e) { System.out.println(e);}
+        if (labels.size() < 1) {
+            try {
+                InputStream fileDescriptor = readReactContext.getAssets().open(mLabel);
+                BufferedReader br = new BufferedReader(new InputStreamReader(fileDescriptor));
+                String line;
+                while ((line = br.readLine()) != null) {
+                    labels.add(line);
+                }
+                br.close();
+            }catch (Exception e) { System.out.println(e);}
+        }
 
-
-        long startTime = SystemClock.uptimeMillis();
         try {
             labelProb = new float[1][labels.size()];
             Map<Integer, Object> outputs = new HashMap<>();
@@ -85,18 +85,8 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
             outputs.put(0, labelProb);
             mModelProcessor.runForMultipleInputsOutputs(inputs, outputs);
         } catch (Exception e){
-                System.out.println(e);
+            System.out.println(e);
         }
-
-//        try {
-//            if (mModelMaxFreqms > 0) {
-//                long endTime = SystemClock.uptimeMillis();
-//                long timeTaken = endTime - startTime;
-//                if (timeTaken < mModelMaxFreqms) {
-//                    TimeUnit.MILLISECONDS.sleep(mModelMaxFreqms - timeTaken);
-//                }
-//            }
-//        } catch (Exception e) {}
         final float[] classes = new float[labels.size()];
         for (int c = 0; c < labels.size(); c++) {
             classes[c] = labelProb[0][c];
@@ -104,13 +94,13 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
         softmax(classes);
         PriorityQueue<WritableMap> pq =
             new PriorityQueue<>(
-                1,
-                new Comparator<WritableMap>() {
-                @Override
-                public int compare(WritableMap lhs, WritableMap rhs) {
-                    return Double.compare(rhs.getDouble("confidence"), lhs.getDouble("confidence"));
-                }
-                });
+                    1,
+                    new Comparator<WritableMap>() {
+                        @Override
+                        public int compare(WritableMap lhs, WritableMap rhs) {
+                            return Double.compare(rhs.getDouble("confidence"), lhs.getDouble("confidence"));
+                        }
+                    });
 
         for (int i = 0; i < labels.size(); ++i) {
             if (classes[i] < 0.001)
@@ -121,29 +111,29 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
             pq.add(res);
         }
 
-    int numResults = 5;
-    int recognitionsSize = Math.min(pq.size(), numResults);
-    final WritableMap[] recognitions = new WritableMap[recognitionsSize];
-    for (int i = 0; i < recognitionsSize; ++i) {
-      recognitions[i] = pq.poll();
-    }
-      return recognitions;
+        int numResults = 5;
+        int recognitionsSize = Math.min(pq.size(), numResults);
+        final WritableMap[] recognitions = new WritableMap[recognitionsSize];
+        for (int i = 0; i < recognitionsSize; ++i) {
+            recognitions[i] = pq.poll();
+        }
+        return recognitions;
     }
 
-  private void softmax(final float[] vals) {
-    float max = Float.NEGATIVE_INFINITY;
-    for (final float val : vals) {
-      max = Math.max(max, val);
+    private void softmax(final float[] vals) {
+        float max = Float.NEGATIVE_INFINITY;
+        for (final float val : vals) {
+            max = Math.max(max, val);
+        }
+        float sum = 0.0f;
+        for (int i = 0; i < vals.length; ++i) {
+            vals[i] = (float) Math.exp(vals[i] - max);
+            sum += vals[i];
+        }
+        for (int i = 0; i < vals.length; ++i) {
+            vals[i] = vals[i] / sum;
+        }
     }
-    float sum = 0.0f;
-    for (int i = 0; i < vals.length; ++i) {
-      vals[i] = (float) Math.exp(vals[i] - max);
-      sum += vals[i];
-    }
-    for (int i = 0; i < vals.length; ++i) {
-      vals[i] = vals[i] / sum;
-    }
-  }
 
     @Override
     protected void onPostExecute(WritableMap[] data) {

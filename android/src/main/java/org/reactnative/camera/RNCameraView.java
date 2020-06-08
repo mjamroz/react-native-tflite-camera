@@ -200,7 +200,9 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
 
            private void setupModelProcessor() {
                int numBytesPerChannel;
+               if (mModelProcessor == null) {
                try {
+                   tfliteOptions.setNumThreads(1);
                    mModelProcessor = new Interpreter(loadModelFile(), tfliteOptions);
                    Tensor tensor = mModelProcessor.getInputTensor(0);
                    this.inputSize = tensor.shape()[1];
@@ -210,6 +212,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
                    mModelInput = ByteBuffer.allocateDirect(1 * this.inputSize * this.inputSize *  inputChannels * bytePerChannel);
                    mModelInput.order(ByteOrder.nativeOrder());
                } catch(Exception e) {}
+           }
            }
 
            private MappedByteBuffer loadModelFile() throws IOException {
@@ -283,6 +286,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
            public void onHostDestroy() {
                if (mModelProcessor != null) {
                    mModelProcessor.close();
+                   mModelProcessor = null;
                }
                mMultiFormatReader = null;
                stop();
