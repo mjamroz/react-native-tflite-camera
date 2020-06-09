@@ -1,8 +1,6 @@
 package org.reactnative.camera.tasks;
 
-import android.content.res.AssetFileDescriptor;
-import android.content.res.AssetManager;
-import android.os.SystemClock;
+import android.util.Log;
 import com.facebook.react.bridge.Arguments;
 
 import com.facebook.react.uimanager.ThemedReactContext;
@@ -10,18 +8,13 @@ import com.facebook.react.uimanager.ThemedReactContext;
 import org.tensorflow.lite.Interpreter;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
-import java.util.concurrent.TimeUnit;
 
 import com.facebook.react.bridge.WritableArray;
 import java.util.PriorityQueue;
@@ -40,6 +33,8 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
     private float[][] labelProb;
     private Vector<String> labels = new Vector<String>();
     private ThemedReactContext readReactContext;
+    private final int numResults = 5;
+    private final float cutoff = 0.001f;
 
     public ModelProcessorAsyncTask(
             ModelProcessorAsyncTaskDelegate delegate,
@@ -75,7 +70,11 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
                     labels.add(line);
                 }
                 br.close();
-            }catch (Exception e) { System.out.println(e);}
+            }catch (Exception e) {
+
+               Log.e("EEEEEEEEEEEEEEEEEEEEEEEEE LABEL", "if called");
+
+                System.out.println(e);}
         }
 
         try {
@@ -85,6 +84,7 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
             outputs.put(0, labelProb);
             mModelProcessor.runForMultipleInputsOutputs(inputs, outputs);
         } catch (Exception e){
+               Log.e("EEEEEEEEEEEEEEEEEEEEEEEEE RUN", "if called");
             System.out.println(e);
         }
         final float[] classes = new float[labels.size()];
@@ -94,7 +94,7 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
         softmax(classes);
         PriorityQueue<WritableMap> pq =
             new PriorityQueue<>(
-                    1,
+                    numResults,
                     new Comparator<WritableMap>() {
                         @Override
                         public int compare(WritableMap lhs, WritableMap rhs) {
@@ -103,7 +103,7 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
                     });
 
         for (int i = 0; i < labels.size(); ++i) {
-            if (classes[i] < 0.001)
+            if (classes[i] < cutoff)
                 continue;
             WritableMap res = Arguments.createMap();
             res.putString("label", labels.size() > i ? labels.get(i) : "unknown");
@@ -111,7 +111,6 @@ public class ModelProcessorAsyncTask extends android.os.AsyncTask<Void, Void, Wr
             pq.add(res);
         }
 
-        int numResults = 5;
         int recognitionsSize = Math.min(pq.size(), numResults);
         final WritableMap[] recognitions = new WritableMap[recognitionsSize];
         for (int i = 0; i < recognitionsSize; ++i) {

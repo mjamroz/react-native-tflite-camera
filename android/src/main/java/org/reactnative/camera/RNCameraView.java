@@ -6,9 +6,6 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.media.CamcorderProfile;
-import android.media.MediaActionSound;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.util.Log;
 import android.view.TextureView;
@@ -28,12 +25,10 @@ import com.google.zxing.MultiFormatReader;
 import org.reactnative.camera.tasks.ModelProcessorAsyncTask;
 import org.reactnative.camera.tasks.ModelProcessorAsyncTaskDelegate;
 import org.reactnative.camera.utils.ImageDimensions;
-import org.reactnative.camera.utils.RNFileUtils;
 import org.tensorflow.lite.Interpreter;
 import org.tensorflow.lite.Tensor;
 import org.tensorflow.lite.DataType;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -41,31 +36,18 @@ import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 
 public class RNCameraView extends CameraView implements LifecycleEventListener,
        ModelProcessorAsyncTaskDelegate {
            private ThemedReactContext mThemedReactContext;
-           private Queue<Promise> mPictureTakenPromises = new ConcurrentLinkedQueue<>();
-           private Map<Promise, ReadableMap> mPictureTakenOptions = new ConcurrentHashMap<>();
-           private Map<Promise, File> mPictureTakenDirectories = new ConcurrentHashMap<>();
-           private Promise mVideoRecordedPromise;
            private Boolean mPlaySoundOnCapture = false;
 
            private boolean mIsPaused = false;
            private boolean mIsNew = true;
-           private Boolean mIsRecording = false;
-           private Boolean mIsRecordingInterrupted = false;
 
            public volatile boolean modelProcessorTaskLock = false;
 
-           // Scanning-related properties
-           private MultiFormatReader mMultiFormatReader;
            private String mModelFile;
            private String mLabelFile;
            private final Interpreter.Options options = new Interpreter.Options();
@@ -116,7 +98,6 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
 
                        if (willCallModelTask) {
                            modelProcessorTaskLock = true;
-                           Log.d("willCallModelTask", "Called");
                            getImageData((TextureView) cameraView.getView());
                            ModelProcessorAsyncTaskDelegate delegate = (ModelProcessorAsyncTaskDelegate) cameraView;
                            new ModelProcessorAsyncTask(delegate, mModelProcessor, mModelInput, mThemedReactContext, mLabelFile, width, height, correctRotation).execute();
@@ -127,9 +108,6 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
 
            private void getImageData(TextureView view) {
                Bitmap bitmap = view.getBitmap(this.inputSize, this.inputSize);
-               // Bitmap bitmap = view.getBitmap(view.getMeasuredWidth(),
-               // view.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
-               bitmap = Bitmap.createScaledBitmap(bitmap, this.inputSize, this.inputSize, true);
                if (bitmap == null) {
                    return;
                }
@@ -138,6 +116,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
                }
                intValues = new int[this.inputSize* this.inputSize];
                bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+               bitmap.recycle();
                mModelInput.rewind();
                int pixel = 0;
                for (int i = 0; i < this.inputSize; ++i) {
@@ -201,18 +180,21 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
            private void setupModelProcessor() {
                int numBytesPerChannel;
                if (mModelProcessor == null) {
-               try {
-                   tfliteOptions.setNumThreads(1);
-                   mModelProcessor = new Interpreter(loadModelFile(), tfliteOptions);
-                   Tensor tensor = mModelProcessor.getInputTensor(0);
-                   this.inputSize = tensor.shape()[1];
-                   int inputChannels = tensor.shape()[3];
-                   int bytePerChannel = tensor.dataType() == DataType.UINT8 ? 1 : 4;
+                   try {
+                       tfliteOptions.setNumThreads(1);
+                       mModelProcessor = new Interpreter(loadModelFile(), tfliteOptions);
+                       Tensor tensor = mModelProcessor.getInputTensor(0);
+                       this.inputSize = tensor.shape()[1];
+                       int inputChannels = tensor.shape()[3];
+                       int bytePerChannel = tensor.dataType() == DataType.UINT8 ? 1 : 4;
 
-                   mModelInput = ByteBuffer.allocateDirect(1 * this.inputSize * this.inputSize *  inputChannels * bytePerChannel);
-                   mModelInput.order(ByteOrder.nativeOrder());
-               } catch(Exception e) {}
-           }
+                       mModelInput = ByteBuffer.allocateDirect(1 * this.inputSize * this.inputSize *  inputChannels * bytePerChannel);
+                       mModelInput.order(ByteOrder.nativeOrder());
+                   } catch(Exception e) {
+                       Log.e("EEEEEEEEEEEEEE if called", "ASDFASDF");
+
+                   }
+               }
            }
 
            private MappedByteBuffer loadModelFile() throws IOException {
@@ -229,7 +211,6 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
                this.mLabelFile = labelFile;
                boolean shouldProcessModel = (modelFile != null && labelFile != null);
                if (shouldProcessModel && mModelProcessor == null) {
-                   Log.v("setModelFile", "if called");
                    setupModelProcessor();
                }
                this.mShouldProcessModel = shouldProcessModel;
@@ -273,9 +254,6 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
 
            @Override
            public void onHostPause() {
-               if (mIsRecording) {
-                   mIsRecordingInterrupted = true;
-               }
                if (!mIsPaused && isCameraOpened()) {
                    mIsPaused = true;
                    stop();
@@ -288,11 +266,15 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
                    mModelProcessor.close();
                    mModelProcessor = null;
                }
-               mMultiFormatReader = null;
-               stop();
                mThemedReactContext.removeLifecycleEventListener(this);
 
-               this.cleanup();
+               mBgHandler.post(new Runnable() {
+                   @Override
+                   public void run() {
+                       stop();
+                       cleanup();
+                   }
+               });
            }
 
            private boolean hasCameraPermissions() {
