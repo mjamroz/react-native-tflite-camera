@@ -99,12 +99,13 @@ public class RNCameraView extends CameraView implements LifecycleEventListener,
     if (bitmap == null || mModelInput == null){
       return;
     }
-      final float imageMean2= 0.485f * 225.0f;
-      final float imageMean1= 0.456f * 225.0f;
-      final float imageMean3= 0.406f * 225.0f;
-      final float imageStd2= 0.229f * 225.0f;
-      final float imageStd1= 0.224f * 225.0f;
-      final float imageStd3= 0.225f * 225.0f;
+      final float imageMean2= 123.68f;
+      final float imageMean1= 116.779f;
+      final float imageMean3= 103.939f;
+      final float imageStd2= 58.393f;
+      final float imageStd1= 57.12f;
+      final float imageStd3= 57.375f;
+
 intValues = new int[this.inputSize* this.inputSize];
     bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
     mModelInput.rewind();
@@ -252,10 +253,6 @@ intValues = new int[this.inputSize* this.inputSize];
 
   @Override
   public void onHostDestroy() {
-    // if (mModelProcessor != null) {
-    //   mModelProcessor.close();
-    //   mModelProcessor = null;
-    // }
     stop();
     mThemedReactContext.removeLifecycleEventListener(this);
 
